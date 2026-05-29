@@ -1,0 +1,15 @@
+node_modules/
+data/chunks/
+data/index/
+data/graph/
+data/models/
+data/evals
+data/repos/fastapi
+coverage/
+.env
+.DS_Store
+__pycache__/
+.pytest_cache/
+.venv/
+skills-lock.json
+plan.md
