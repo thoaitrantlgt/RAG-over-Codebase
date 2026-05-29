@@ -13,4 +13,4 @@ __pycache__/
 .venv/
 skills-lock.json
 plan.md
-.agents
+.agents/skills
