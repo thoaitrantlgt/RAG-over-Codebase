@@ -3,6 +3,7 @@ data/chunks/
 data/index/
 data/graph/
 data/models/
+data/sync/
 data/evals
 data/repos/fastapi
 coverage/
