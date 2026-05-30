@@ -1,0 +1,104 @@
+{
+  "repo": "sample_repo",
+  "updated_at": "2026-05-30T08:22:40.886576+00:00",
+  "chunks": {
+    "sample_repo:src/auth/service.py:check_permission:4:5": {
+      "path": "src/auth/service.py",
+      "content_hash": "f293d657fed828d45514adfc98d0ade1185296cf3b9d43e717e0149c17606e82",
+      "symbol_name": "check_permission",
+      "symbol_kind": "function",
+      "start_line": 4,
+      "end_line": 5
+    },
+    "sample_repo:src/auth/service.py:AuthService:8:14": {
+      "path": "src/auth/service.py",
+      "content_hash": "ac6fd52d0fa260c61a306c51861d81241654dd962b5e476897bd98c6f4e30fec",
+      "symbol_name": "AuthService",
+      "symbol_kind": "class",
+      "start_line": 8,
+      "end_line": 14
+    },
+    "sample_repo:src/auth/service.py:AuthService.verify_token:9:11": {
+      "path": "src/auth/service.py",
+      "content_hash": "15b65d91442c201094960f0db0897de6a0010030267dcb43a888a2b5b3251310",
+      "symbol_name": "AuthService.verify_token",
+      "symbol_kind": "method",
+      "start_line": 9,
+      "end_line": 11
+    },
+    "sample_repo:src/auth/service.py:AuthService.refresh_token:13:14": {
+      "path": "src/auth/service.py",
+      "content_hash": "16a08bf4ff57d75b9c79c8b96ce2097740f9089ea1d1e8d729283d1eeb253cb9",
+      "symbol_name": "AuthService.refresh_token",
+      "symbol_kind": "method",
+      "start_line": 13,
+      "end_line": 14
+    },
+    "sample_repo:src/component.tsx:UserCard:1:3": {
+      "path": "src/component.tsx",
+      "content_hash": "7325c405e3eaaf584a79c7057fae59f06a63f8f2bdc6801d9abe6c9288eca0c4",
+      "symbol_name": "UserCard",
+      "symbol_kind": "function",
+      "start_line": 1,
+      "end_line": 3
+    },
+    "sample_repo:src/users.ts:getUser:1:3": {
+      "path": "src/users.ts",
+      "content_hash": "0aedf6c1c7c851798483ae84afb13090c624d973bbe367987d1bd7707e2eb6a7",
+      "symbol_name": "getUser",
+      "symbol_kind": "function",
+      "start_line": 1,
+      "end_line": 3
+    },
+    "sample_repo:src/users.ts:UserService:5:9": {
+      "path": "src/users.ts",
+      "content_hash": "c25fb973679b29b802ecfd6e6a17d383c652495a82eaa0967b492c6c34c1d96a",
+      "symbol_name": "UserService",
+      "symbol_kind": "class",
+      "start_line": 5,
+      "end_line": 9
+    },
+    "sample_repo:src/users.ts:UserService.findUser:6:8": {
+      "path": "src/users.ts",
+      "content_hash": "266efb9f9e68c9e0192f2776959091050ec04c364e6105260b4c1281677a59ec",
+      "symbol_name": "UserService.findUser",
+      "symbol_kind": "method",
+      "start_line": 6,
+      "end_line": 8
+    },
+    "sample_repo:src/users.ts:ExportedService:11:15": {
+      "path": "src/users.ts",
+      "content_hash": "687f3d1b34bff88e0dd48b827ab65cc58f5a80b5d1e0242fc9232978b35b411e",
+      "symbol_name": "ExportedService",
+      "symbol_kind": "class",
+      "start_line": 11,
+      "end_line": 15
+    },
+    "sample_repo:src/users.ts:ExportedService.run:12:14": {
+      "path": "src/users.ts",
+      "content_hash": "174604327965702440799a8ac5414f9650cb5f624dcbc49367dea22583b0859e",
+      "symbol_name": "ExportedService.run",
+      "symbol_kind": "method",
+      "start_line": 12,
+      "end_line": 14
+    }
+  },
+  "files": {
+    "src/auth/service.py": [
+      "sample_repo:src/auth/service.py:AuthService.refresh_token:13:14",
+      "sample_repo:src/auth/service.py:AuthService.verify_token:9:11",
+      "sample_repo:src/auth/service.py:AuthService:8:14",
+      "sample_repo:src/auth/service.py:check_permission:4:5"
+    ],
+    "src/component.tsx": [
+      "sample_repo:src/component.tsx:UserCard:1:3"
+    ],
+    "src/users.ts": [
+      "sample_repo:src/users.ts:ExportedService.run:12:14",
+      "sample_repo:src/users.ts:ExportedService:11:15",
+      "sample_repo:src/users.ts:UserService.findUser:6:8",
+      "sample_repo:src/users.ts:UserService:5:9",
+      "sample_repo:src/users.ts:getUser:1:3"
+    ]
+  }
+}

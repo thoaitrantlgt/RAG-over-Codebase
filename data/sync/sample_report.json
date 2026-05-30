@@ -1,0 +1,23 @@
+{
+  "repo": "sample_repo",
+  "changed_files": [
+    "src/auth/service.py"
+  ],
+  "files_added": [
+    "src/auth/service.py"
+  ],
+  "files_modified": [],
+  "files_deleted": [],
+  "chunks_added": [
+    "sample_repo:src/auth/service.py:AuthService.refresh_token:13:14",
+    "sample_repo:src/auth/service.py:AuthService.verify_token:9:11",
+    "sample_repo:src/auth/service.py:AuthService:8:14",
+    "sample_repo:src/auth/service.py:check_permission:4:5"
+  ],
+  "chunks_updated": [],
+  "chunks_deleted": [],
+  "chunks_unchanged": [],
+  "changed_chunks_path": "C:\\Thoai\\RAG\\data\\sync\\sample_changed_chunks.jsonl",
+  "full_chunks_path": "C:\\Thoai\\RAG\\data\\sync\\sample_full_chunks.jsonl",
+  "state_path": "C:\\Thoai\\RAG\\data\\sync\\sample_state.json"
+}

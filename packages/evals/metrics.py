@@ -7,6 +7,7 @@ class RankingMetrics:
     recall_at_1: float
     recall_at_5: float
     recall_at_10: float
+    recall_at_50: float
     mrr_at_10: float
     ndcg_at_10: float
 
@@ -21,13 +22,14 @@ def evaluate_ranking(
     k_values: tuple[int, int, int] = (1, 5, 10),
 ) -> RankingMetrics:
     if not positive_ids:
-        return RankingMetrics(0.0, 0.0, 0.0, 0.0, 0.0)
+        return RankingMetrics(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     recalls = [recall_at_k(ranked_ids, positive_ids, k) for k in k_values]
     return RankingMetrics(
         recall_at_1=recalls[0],
         recall_at_5=recalls[1],
         recall_at_10=recalls[2],
+        recall_at_50=recall_at_k(ranked_ids, positive_ids, 50),
         mrr_at_10=mrr_at_k(ranked_ids, positive_ids, 10),
         ndcg_at_10=ndcg_at_k(ranked_ids, positive_ids, 10),
     )
@@ -60,13 +62,14 @@ def ndcg_at_k(ranked_ids: list[str], positive_ids: set[str], k: int) -> float:
 
 def average_metrics(metrics: list[RankingMetrics]) -> RankingMetrics:
     if not metrics:
-        return RankingMetrics(0.0, 0.0, 0.0, 0.0, 0.0)
+        return RankingMetrics(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     count = len(metrics)
     return RankingMetrics(
         recall_at_1=sum(item.recall_at_1 for item in metrics) / count,
         recall_at_5=sum(item.recall_at_5 for item in metrics) / count,
         recall_at_10=sum(item.recall_at_10 for item in metrics) / count,
+        recall_at_50=sum(item.recall_at_50 for item in metrics) / count,
         mrr_at_10=sum(item.mrr_at_10 for item in metrics) / count,
         ndcg_at_10=sum(item.ndcg_at_10 for item in metrics) / count,
     )

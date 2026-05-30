@@ -26,6 +26,14 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--queries", default="data/evals/repobench_r_queries.jsonl")
     run.add_argument("--report-out", default="data/evals/repobench_r_report.json")
     run.add_argument("--mode", choices=["hybrid", "dense", "sparse"], default="hybrid")
+    run.add_argument("--scope", choices=["sample", "global"], default="sample")
+    run.add_argument("--candidate-top-k", type=int, default=50)
+    run.add_argument("--rerank-method", choices=["none", "lexical", "bge-m3"], default="lexical")
+    run.add_argument("--bge-reranker-model", default="BAAI/bge-reranker-v2-m3")
+    run.add_argument("--bge-reranker-cache-dir", default="data/models/bge-reranker")
+    run.add_argument("--bge-reranker-batch-size", type=int, default=8)
+    run.add_argument("--bge-reranker-max-passage-chars", type=int, default=4000)
+    run.add_argument("--bge-reranker-use-fp16", action="store_true")
     run.add_argument("--top-k", type=int, default=10)
     add_retrieval_args(run)
 
@@ -87,6 +95,14 @@ def main() -> None:
         config=config,
         mode=args.mode,
         top_k=args.top_k,
+        scope=args.scope,
+        candidate_top_k=args.candidate_top_k,
+        rerank_method=args.rerank_method,
+        bge_reranker_model=args.bge_reranker_model,
+        bge_reranker_cache_dir=args.bge_reranker_cache_dir,
+        bge_reranker_batch_size=args.bge_reranker_batch_size,
+        bge_reranker_max_passage_chars=args.bge_reranker_max_passage_chars,
+        bge_reranker_use_fp16=args.bge_reranker_use_fp16,
     )
     write_json(args.report_out, result.to_dict())
     print(json.dumps(result.to_dict()["metrics"], ensure_ascii=False, indent=2))
@@ -95,8 +111,8 @@ def main() -> None:
 
 def apply_retrieval_overrides(config: AgentConfig, args, *, top_k: int) -> AgentConfig:
     updates = {
-        "retrieve_top_k": args.retrieve_top_k or max(top_k, config.retrieve_top_k),
-        "fused_top_k": args.fused_top_k or max(top_k, config.fused_top_k),
+        "retrieve_top_k": args.retrieve_top_k or max(args.candidate_top_k, top_k, config.retrieve_top_k),
+        "fused_top_k": args.fused_top_k or max(args.candidate_top_k, top_k, config.fused_top_k),
     }
     for arg_name, field_name in [
         ("dense_backend", "dense_backend"),

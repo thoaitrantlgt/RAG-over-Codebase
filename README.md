@@ -186,6 +186,53 @@ python -m packages.evals.repobench_r_cli run \
   --sparse-backend tantivy \
   --qdrant-collection repobench_r_chunks \
   --mode hybrid \
+  --scope sample \
+  --candidate-top-k 50 \
+  --rerank-method bge-m3 \
+  --bge-reranker-model BAAI/bge-reranker-v2-m3 \
+  --bge-reranker-cache-dir data/models/bge-reranker \
+  --bge-reranker-batch-size 8 \
   --top-k 10 \
+  --retrieve-top-k 200 \
+  --fused-top-k 200 \
   --report-out data/evals/repobench_r_report.json
+```
+
+## Phase 5: Incremental Sync And Eval Gates
+
+List files changed between two git refs:
+
+```bash
+python -m packages.sync.cli changed-files \
+  --repo-path data/repos/fastapi \
+  --base HEAD~1 \
+  --head HEAD \
+  --json
+```
+
+Run incremental ingestion state diff:
+
+```bash
+python -m packages.sync.cli incremental \
+  --repo-path data/repos/fastapi \
+  --repo-name fastapi \
+  --state data/sync/fastapi_state.json \
+  --base HEAD~1 \
+  --head HEAD \
+  --changed-chunks-out data/sync/fastapi_changed_chunks.jsonl \
+  --full-chunks-out data/sync/fastapi_full_chunks.jsonl \
+  --report-out data/sync/fastapi_incremental_report.json
+```
+
+Compare two eval reports and fail if selected metrics drop too much:
+
+```bash
+python -m packages.evals.cli compare \
+  --baseline data/evals/repobench_r_baseline_report.json \
+  --current data/evals/repobench_r_report.json \
+  --metric mrr_at_10 \
+  --metric ndcg_at_10 \
+  --metric recall_at_10 \
+  --max-drop 0.02 \
+  --report-out data/evals/repobench_r_compare.json
 ```

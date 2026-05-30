@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -9,6 +10,7 @@ from packages.agent.config import AgentConfig
 from packages.indexing.io import read_jsonl
 
 from .metrics import RankingMetrics, average_metrics, evaluate_ranking
+from .rerank import rerank_results
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,7 @@ class RepoBenchEvalResult:
     sample_count: int
     mode: str
     metrics: RankingMetrics
+    candidate_metrics: RankingMetrics
     per_query: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,6 +46,7 @@ class RepoBenchEvalResult:
             "sample_count": self.sample_count,
             "mode": self.mode,
             "metrics": self.metrics.to_dict(),
+            "candidate_metrics": self.candidate_metrics.to_dict(),
             "per_query": self.per_query,
         }
 
@@ -88,18 +92,25 @@ def prepare_repobench_records(
             continue
 
         positive_chunk_ids: list[str] = []
+        candidate_chunk_ids: list[str] = []
         for candidate_index, candidate in enumerate(candidates):
             chunk_id = make_chunk_id(repo_name, query_id, candidate_index)
+            candidate_chunk_ids.append(chunk_id)
             code_body = candidate["code_body"]
             path = candidate.get("path") or f"{query_id}/candidate_{candidate_index}.py"
+            symbol_name = (
+                candidate.get("symbol_name")
+                or extract_symbol_name(code_body)
+                or f"candidate_{candidate_index}"
+            )
             chunk = {
                 "repo": repo_name,
                 "path": path,
                 "language": infer_language(path),
                 "start_line": int(candidate.get("start_line") or 1),
                 "end_line": int(candidate.get("end_line") or line_count(code_body)),
-                "symbol_name": candidate.get("symbol_name") or f"candidate_{candidate_index}",
-                "symbol_kind": "function",
+                "symbol_name": symbol_name,
+                "symbol_kind": infer_symbol_kind(code_body),
                 "code_body": code_body,
                 "chunk_id": chunk_id,
                 "content_hash": sha256(code_body.encode("utf-8")).hexdigest(),
@@ -119,6 +130,7 @@ def prepare_repobench_records(
                         "repo": record.get("repo") or record.get("repo_name"),
                         "path": record.get("path") or record.get("file_path"),
                         "gold_indices": sorted(gold_indices),
+                        "candidate_chunk_ids": candidate_chunk_ids,
                     },
                 )
             )
@@ -141,10 +153,20 @@ def run_repobench_eval(
     config: AgentConfig,
     mode: str = "hybrid",
     top_k: int = 10,
+    scope: str = "sample",
+    candidate_top_k: int | None = None,
+    rerank_method: str = "none",
+    bge_reranker_model: str = "BAAI/bge-reranker-v2-m3",
+    bge_reranker_cache_dir: str | None = None,
+    bge_reranker_batch_size: int = 8,
+    bge_reranker_max_passage_chars: int = 4000,
+    bge_reranker_use_fp16: bool = False,
 ) -> RepoBenchEvalResult:
     queries = [RepoBenchQuery(**record) for record in read_jsonl(queries_path)]
     per_query: list[dict[str, Any]] = []
     metrics: list[RankingMetrics] = []
+    candidate_metrics: list[RankingMetrics] = []
+    candidate_limit = candidate_top_k or top_k
 
     for query in queries:
         dense, sparse = retrieve(query.query, config)
@@ -153,28 +175,55 @@ def run_repobench_eval(
         elif mode == "sparse":
             ranked = sparse
         elif mode == "hybrid":
-            ranked = reciprocal_rank_fusion([dense, sparse], limit=top_k, k=config.rrf_k)
+            ranked = reciprocal_rank_fusion(
+                [dense, sparse],
+                limit=max(candidate_limit, config.fused_top_k),
+                k=config.rrf_k,
+            )
         else:
             raise ValueError(f"Unsupported eval mode: {mode}")
 
-        ranked_ids = [result.chunk_id for result in ranked[:top_k]]
+        if scope == "sample":
+            allowed_ids = set(query.metadata.get("candidate_chunk_ids", []))
+            ranked = [result for result in ranked if result.chunk_id in allowed_ids]
+        elif scope != "global":
+            raise ValueError(f"Unsupported eval scope: {scope}")
+
+        candidates = ranked[:candidate_limit]
+        reranked = rerank_results(
+            query.query,
+            candidates,
+            method=rerank_method,
+            bge_model=bge_reranker_model,
+            bge_cache_dir=bge_reranker_cache_dir,
+            bge_batch_size=bge_reranker_batch_size,
+            bge_max_passage_chars=bge_reranker_max_passage_chars,
+            bge_use_fp16=bge_reranker_use_fp16,
+        )
+        ranked_ids = [result.chunk_id for result in reranked[:top_k]]
+        candidate_ranked_ids = [result.chunk_id for result in candidates[:candidate_limit]]
         positive_ids = set(query.positive_chunk_ids)
         query_metrics = evaluate_ranking(ranked_ids, positive_ids)
+        query_candidate_metrics = evaluate_ranking(candidate_ranked_ids, positive_ids)
         metrics.append(query_metrics)
+        candidate_metrics.append(query_candidate_metrics)
         per_query.append(
             {
                 "query_id": query.query_id,
                 "metrics": query_metrics.to_dict(),
+                "candidate_metrics": query_candidate_metrics.to_dict(),
                 "positive_chunk_ids": query.positive_chunk_ids,
                 "ranked_chunk_ids": ranked_ids,
+                "candidate_ranked_chunk_ids": candidate_ranked_ids,
                 "metadata": query.metadata,
             }
         )
 
     return RepoBenchEvalResult(
         sample_count=len(queries),
-        mode=mode,
+        mode=f"{mode}:{scope}:rerank={rerank_method}:candidates={candidate_limit}",
         metrics=average_metrics(metrics),
+        candidate_metrics=average_metrics(candidate_metrics),
         per_query=per_query,
     )
 
@@ -312,14 +361,14 @@ def is_binary_label_list(value: Any, expected_length: int) -> bool:
 
 
 def build_query(record: dict[str, Any], *, max_chars: int) -> str:
-    parts: list[str] = []
+    stable_parts: list[str] = []
+    for field in ("repo", "repo_name", "path", "file_path", "import_statement", "imports"):
+        text = stringify_field(record.get(field))
+        if text:
+            stable_parts.append(f"{field}:\n{text}")
+
+    tail_parts: list[str] = []
     for field in (
-        "repo",
-        "repo_name",
-        "path",
-        "file_path",
-        "import_statement",
-        "imports",
         "cropped_code",
         "in_file_context",
         "infile_context",
@@ -329,17 +378,48 @@ def build_query(record: dict[str, Any], *, max_chars: int) -> str:
         "current_file_content",
         "file_content",
     ):
-        value = record.get(field)
-        if value is None:
-            continue
-        text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-        if text.strip():
-            parts.append(f"{field}:\n{text.strip()}")
+        text = stringify_field(record.get(field))
+        if text:
+            tail_parts.append(f"{field}:\n{text}")
 
-    query = "\n\n".join(parts).strip()
-    if len(query) <= max_chars:
-        return query
-    return query[-max_chars:]
+    stable = "\n\n".join(stable_parts).strip()
+    tail = "\n\n".join(tail_parts).strip()
+    tail_budget = max(500, max_chars - len(stable) - 2)
+    if len(tail) > tail_budget:
+        tail = tail[-tail_budget:]
+
+    if stable and tail:
+        return f"{stable}\n\n{tail}"
+    return stable or tail
+
+
+def stringify_field(value: Any) -> str:
+    if value is None:
+        return ""
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+    return text.strip()
+
+
+def extract_symbol_name(code_body: str) -> str | None:
+    patterns = (
+        r"^\s*(?:async\s+def|def)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(",
+        r"^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)\s*[\(:]",
+    )
+    for line in code_body.splitlines():
+        for pattern in patterns:
+            match = re.match(pattern, line)
+            if match:
+                return match.group(1)
+    return None
+
+
+def infer_symbol_kind(code_body: str) -> str:
+    for line in code_body.splitlines():
+        if re.match(r"^\s*class\s+[A-Za-z_][A-Za-z0-9_]*\s*[\(:]", line):
+            return "class"
+        if re.match(r"^\s*(?:async\s+def|def)\s+[A-Za-z_][A-Za-z0-9_]*\s*\(", line):
+            return "function"
+    return "snippet"
 
 
 def maybe_json(value: Any) -> Any:
